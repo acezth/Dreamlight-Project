@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html data-bs-theme="light" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no" />
+    <title>Team - Brand</title>
+    <link rel="stylesheet" href="assets/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800&amp;display=swap">
+    
+    <style>
+        body {
+            background-color: #27262c; /* Dark background for the body */
+        }
+        .table th, .table td {
+            color: white !important; /* Force the text color to white */
+        }
+        .table {
+            background-color: #27262c; /* Dark background for the table */
+        }
+    </style>
+
+</head>
+
+<body>
+    <nav id="mainNav" class="navbar navbar-expand-md sticky-top py-3 navbar-dark">
+        <div class="container"><a class="navbar-brand d-flex align-items-center" href="/"><span class="bs-icon-sm bs-icon-circle bs-icon-primary shadow d-flex justify-content-center align-items-center me-2 bs-icon"><svg class="bi bi-brightness-alt-high" xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M8 3a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 3m8 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5m-13.5.5a.5.5 0 0 0 0-1h-2a.5.5 0 0 0 0 1zm11.157-6.157a.5.5 0 0 1 0 .707l-1.414 1.414a.5.5 0 1 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0m-9.9 2.121a.5.5 0 0 0 .707-.707L3.05 5.343a.5.5 0 1 0-.707.707l1.414 1.414zM8 7a4 4 0 0 0-4 4 .5.5 0 0 0 .5.5h7a.5.5 0 0 0 .5-.5 4 4 0 0 0-4-4m0 1a3 3 0 0 1 2.959 2.5H5.04A3 3 0 0 1 8 8"></path>
+                    </svg></span><span>DreamLight</span></a><button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navcol-1"><span class="visually-hidden">Toggle navigation</span><span class="navbar-toggler-icon"></span></button>
+            <div id="navcol-1" class="collapse navbar-collapse">
+                <ul class="navbar-nav mx-auto">
+                    <li class="nav-item"><a class="nav-link" href="/index.html">Home</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="/health.html">Health</a></li>
+                    <li class="nav-item"></li>
+                    <li class="nav-item"><a class="nav-link" href="/pricing.html">Pricing</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/contacts.html">Contacts</a></li>
+                </ul><a class="btn btn-primary shadow" role="button" href="../signup.html">Join Now</a><a class="btn btn-primary shadow" role="button" href="../login.html">Sign In</a>
+            </div>
+        </div>
+    </nav>
+    <section class="py-5">
+        <div class="container py-5">
+            <div class="row mb-4 mb-lg-5">
+                <div class="col-md-8 col-xl-6 text-center mx-auto">
+                    <p class="fw-bold text-success mb-2">Our Services Your Health</p>
+                    <h2 class="fw-bold">Health Report</h2>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Metric</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody id="health-data">
+                        <tr><td>Body Temperature</td><td>Loading...</td></tr>
+                        <tr><td>Sleep Duration</td><td>Loading...</td></tr>
+                        <tr><td>Sleep Quality</td><td>Loading...</td></tr>
+                        <tr><td>Activity Length</td><td>Loading...</td></tr>
+                        <tr><td>Health Rating</td><td>Loading...</td></tr>
+                        <tr><td>Environmental Light Exposure</td><td>Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        // Establish WebSocket connection
+        const socket = new WebSocket('ws://localhost:8080'); // Update with your server's WebSocket URL
+
+        // Handle incoming messages from the WebSocket server
+        socket.onmessage = function (event) {
+            const data = JSON.parse(event.data);
+            const table = document.getElementById("health-data");
+
+            // Update table rows based on incoming data
+            table.innerHTML = `
+                <tr><td>Body Temperature</td><td>${data.bodyTemperature} °C</td></tr>
+                <tr><td>Sleep Duration</td><td>${data.sleepDuration} hours</td></tr>
+                <tr><td>Sleep Quality</td><td>${data.sleepQuality} / 100</td></tr>
+                <tr><td>Activity Length</td><td>${data.activityLength} min</td></tr>
+                <tr><td>Health Rating</td><td>${data.healthRating} / 100</td></tr>
+                <tr><td>Environmental Light Exposure</td><td>${data.lightExposure} lux</td></tr>
+            `;
+        };
+
+        // Handle any errors
+        socket.onerror = function (error) {
+            console.error("WebSocket Error:", error);
+        };
+    </script>
+
+    <footer class="bg-dark">
+        <div class="container py-4 py-lg-5">
+            <div class="row justify-content-center">
+                <div class="col-sm-4 col-md-3 text-center text-lg-start d-flex flex-column">
+                    <h3 class="fs-6 fw-bold">Services</h3>
+                    <ul class="list-unstyled">
+                        <li><a href="/health.html">Health</a></li>
+                        <li><a href="/pricing.html">Pricing</a></li>
+                    </ul>
+                </div>
+                <div class="col-sm-4 col-md-3 text-center text-lg-start d-flex flex-column">
+                    <h3 class="fs-6 fw-bold">About</h3>
+                    <ul class="list-unstyled">
+                        <li><a href="/index.html">Home</a></li>
+                        <li><a href="/contacts.html">Contacts</a></li>
+                    </ul>
+                </div>
+            </div>
+            <hr />
+            <div class="text-muted d-flex justify-content-between align-items-center pt-3">
+                <p class="mb-0">Copyright © 2025 Brand</p>
+            </div>
+        </div>
+    </footer>
+</body>
+
+</html>
