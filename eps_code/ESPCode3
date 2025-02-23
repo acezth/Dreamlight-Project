@@ -1,0 +1,242 @@
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_MPU6050.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
+#define LDR_PIN 34              // Analog input for LDR module
+#define ONE_WIRE_BUS 4          // GPIO for DS18B20 temperature sensor
+
+// Function Prototypes
+void readSensors();
+void analyzeSleep();
+void detectBedEntry();
+void calculateSleepDurations();
+void analyzeCircadianRhythm();
+void calculateSleepScore();
+void detectFever();
+void generateRecommendations();
+
+// Sensor Setup
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature tempSensors(&oneWire);
+Adafruit_MPU6050 mpu;
+
+// Data Variables
+float cumulativeLight = 0;
+float cumulativeTemp = 0;
+float cumulativeMovement = 0;
+int readingCount = 0;
+
+float avgLight = 0;
+float avgTemperature = 0;
+float avgMovement = 0;
+float circadianRhythmScore = 100; // Bounded 0-100
+float sleepScore = 100;
+
+// User Inputs (can be extended)
+int userAge = 25;
+String desiredSleepSchedule = "22:00-06:00";
+String userDiet = "Balanced";
+
+// Sleep Stage Variables
+// 0: Awake, 1: Light Sleep, 2: REM, 3: Deep Sleep
+int sleepStage = 0;
+float sleepQualityScore = 0;
+bool inBed = false;
+unsigned long bedEntryTime = 0;
+unsigned long sleepOnsetTime = 0;
+unsigned long bedExitTime = 0;
+float hoursInBed = 0;
+float hoursSlept = 0;
+float timeAwake = 0;
+float timeLightSleep = 0;
+float timeREM = 0;
+float timeDeepSleep = 0;
+
+void setup() {
+  Serial.begin(115200);
+  delay(2000); // Give time for the serial monitor to start
+  Serial.println("System Starting...");
+
+  // Initialize I2C
+  Wire.begin();
+
+  // Initialize DS18B20 sensor
+  Serial.println("Initializing DS18B20 temperature sensor...");
+  tempSensors.begin();
+  Serial.println("DS18B20 initialization complete.");
+
+  // Initialize MPU6050 sensor
+  Serial.println("Initializing MPU6050 sensor...");
+  if (!mpu.begin()) {
+    Serial.println("MPU6050 initialization failed! Check wiring.");
+    while (1) delay(10); // Halt execution if sensor fails to initialize
+  }
+  Serial.println("MPU6050 initialization successful.");
+
+  Serial.println("Setup complete.\n");
+}
+
+void loop() {
+  readSensors();
+  analyzeSleep();
+  detectBedEntry();
+  calculateSleepDurations();
+  analyzeCircadianRhythm();
+  calculateSleepScore();
+  detectFever();
+  generateRecommendations();
+
+  Serial.println("-------------------------------------------------\n");
+  delay(5000); // Update every 5 seconds
+}
+
+void readSensors() {
+  Serial.println("=== Reading Sensors ===");
+
+  // Read LDR sensor (analog)
+  int lightReading = analogRead(LDR_PIN);
+
+  // Read temperature from DS18B20 sensor
+  tempSensors.requestTemperatures();
+  float tempReading = tempSensors.getTempCByIndex(0);
+  if (tempReading == DEVICE_DISCONNECTED_C) {
+    Serial.println("Error: DS18B20 sensor not detected!");
+    tempReading = 0; // Fallback value
+  }
+
+  // Read acceleration from MPU6050 sensor
+  sensors_event_t a, g, temp;
+  mpu.getEvent(&a, &g, &temp);
+  float movement = fabs(a.acceleration.x) + fabs(a.acceleration.y) + fabs(a.acceleration.z);
+
+  // Update cumulative values and count
+  cumulativeLight += lightReading;
+  cumulativeTemp += tempReading;
+  cumulativeMovement += movement;
+  readingCount++;
+
+  // Calculate averages
+  avgLight = cumulativeLight / readingCount;
+  avgTemperature = cumulativeTemp / readingCount;
+  avgMovement = cumulativeMovement / readingCount;
+
+  // Print sensor values
+  Serial.print("Light Reading: "); Serial.print(lightReading);
+  Serial.print(" | Average Light: "); Serial.println(avgLight);
+  Serial.print("Temperature Reading (°C): "); Serial.print(tempReading);
+  Serial.print(" | Average Temperature (°C): "); Serial.println(avgTemperature);
+  Serial.print("Movement (acceleration sum): "); Serial.print(movement);
+  Serial.print(" | Average Movement: "); Serial.println(avgMovement);
+  Serial.println("========================\n");
+}
+
+void analyzeSleep() {
+  Serial.println("=== Analyzing Sleep Stage ===");
+
+  // Simplified sleep stage logic based on average movement and temperature
+  if (avgMovement > 1.5) {
+    sleepStage = 0; // Awake
+    timeAwake += 5.0 / 3600;
+  } else if (avgMovement > 0.5 && avgMovement <= 1.5) {
+    sleepStage = 1; // Light Sleep
+    timeLightSleep += 5.0 / 3600;
+  } else if (avgMovement <= 0.5 && avgTemperature >= 36.0 && avgTemperature <= 36.5) {
+    sleepStage = 2; // REM Sleep
+    timeREM += 5.0 / 3600;
+  } else if (avgMovement <= 0.2 && avgTemperature < 36.0) {
+    sleepStage = 3; // Deep Sleep
+    timeDeepSleep += 5.0 / 3600;
+  } else {
+    sleepStage = 0; // Default to Awake if conditions are not met
+  }
+  Serial.print("Determined Sleep Stage: "); Serial.println(sleepStage);
+  Serial.println("==============================\n");
+}
+
+void detectBedEntry() {
+  Serial.println("=== Detecting Bed Entry/Exit ===");
+  if (!inBed && avgMovement < 0.5) {
+    inBed = true;
+    bedEntryTime = millis();
+    Serial.println("User entered bed.");
+  } else if (inBed && avgMovement > 1.5) {
+    inBed = false;
+    bedExitTime = millis();
+    Serial.println("User exited bed.");
+  } else {
+    Serial.println("No change in bed status.");
+  }
+  Serial.println("===============================\n");
+}
+
+void calculateSleepDurations() {
+  Serial.println("=== Calculating Sleep Durations ===");
+  if (inBed) {
+    hoursInBed = (millis() - bedEntryTime) / 3600000.0;
+    hoursSlept = timeLightSleep + timeREM + timeDeepSleep;
+  } else {
+    hoursInBed = 0;
+  }
+  Serial.print("Hours in Bed: "); Serial.println(hoursInBed);
+  Serial.print("Total Hours Slept: "); Serial.println(hoursSlept);
+  Serial.println("===================================\n");
+}
+
+void analyzeCircadianRhythm() {
+  Serial.println("=== Analyzing Circadian Rhythm ===");
+  // Adjust circadian score based on average light level (this is a simplified model)
+  circadianRhythmScore = (circadianRhythmScore + avgLight / 2.0) / 2.0;
+  circadianRhythmScore = constrain(circadianRhythmScore, 0, 100);
+  Serial.print("Circadian Rhythm Score: "); Serial.println(circadianRhythmScore);
+  Serial.println("=================================\n");
+}
+
+void calculateSleepScore() {
+  Serial.println("=== Calculating Sleep Score ===");
+  if (hoursSlept > 0) {
+    sleepScore = (hoursSlept / 8.0) * 50
+               + (timeDeepSleep / hoursSlept) * 25
+               + (timeREM / hoursSlept) * 15
+               + (timeLightSleep / hoursSlept) * 10;
+    sleepScore = constrain(sleepScore, 0, 100);
+  } else {
+    sleepScore = 0;
+  }
+  Serial.print("Sleep Score: "); Serial.println(sleepScore);
+  Serial.println("===============================\n");
+}
+
+void detectFever() {
+  Serial.println("=== Temperature Check ===");
+  if (avgTemperature >= 38.0) {
+    Serial.println("⚠️ High Temperature Detected! Possible Fever.");
+  } else if (avgTemperature >= 37.5 && avgTemperature < 38.0) {
+    Serial.println("⚠️ Elevated Temperature: Monitor for potential fever symptoms.");
+  } else if (avgTemperature >= 36.5 && avgTemperature < 37.5) {
+    Serial.println("✅ Normal Body Temperature.");
+  } else if (avgTemperature < 36.5) {
+    Serial.println("🔹 Slightly Lower Temperature: May be due to sleep cycle variations.");
+  }
+  Serial.println("==========================\n");
+}
+
+void generateRecommendations() {
+  Serial.println("=== Generating Recommendations ===");
+  if (sleepScore < 60) {
+    Serial.println("- Improve sleep consistency: try to sleep and wake at the same time daily.");
+  }
+  if (timeDeepSleep < 1.5) {
+    Serial.println("- Increase deep sleep: avoid screens before bed and reduce caffeine.");
+  }
+  if (circadianRhythmScore < 50) {
+    Serial.println("- Your circadian rhythm is misaligned: get more morning light exposure.");
+  }
+  if (avgLight > 200) {
+    Serial.println("- Reduce bright light exposure before bedtime to improve melatonin production.");
+  }
+  Serial.print("Final Circadian Rhythm Score: "); Serial.println(circadianRhythmScore);
+  Serial.print("Final Sleep Score: "); Serial.println(sleepScore);
+  Serial.println("====================================\n");
+}
